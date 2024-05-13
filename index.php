@@ -239,10 +239,58 @@ function login(){
     $sentence->execute([$email]);
     $userdata = $sentence->fetch();
     // valida la contraseña
+    // si la contraseña es correcta retorna el usuario
     if(is_array($userdata) && md5($data->password)==$userdata['password']){
+        // se envia la informacion adicional del usuario nombres y apellidos
+        $sentence = Flight::db()->prepare('SELECT * FROM user_additional_info WHERE user_id = ?');
+        $sentence->execute([$userdata['user_id']]);
+        $user_additional_info = $sentence->fetch();
+        // validar si el usuario tiene informacion adicional
+        if(is_array($user_additional_info)){
+            $response['status'] = 'success';
+            $response['message'] = 'Usuario logueado';
+            $response['data'] = [
+                'user_id' => $userdata['user_id'],
+                'email' => $userdata['email'],
+                'first_name' => $user_additional_info['first_name'],
+                'last_name' => $user_additional_info['last_name']
+            ];
+            return Flight::json($response);
+        }else{
+            $response['status'] = 'error';
+            $response['message'] = 'Usuario no tiene informacion adicional';
+            Flight::halt(400, json_encode($response));
+        }
+       
+    }else{
+        $response['status'] = 'error';
+        $response['message'] = 'Usuario no encontrado';
+        Flight::halt(400, json_encode($response));
+    }
+}
+/**
+ * function para obtener la informacion adicional de un usuario por medio del correo
+ * recibe un json con el correo del usuario
+ */
+function getUserAdditionalInfo(){
+    $data = Flight::request()->data;
+    $email = $data->email;
+    $sentence = Flight::db()->prepare('SELECT * FROM users WHERE email = ?');
+    $sentence->execute([$email]);
+    $userdata = $sentence->fetch();
+    if(is_array($userdata)){
+        $sentence = Flight::db()->prepare('SELECT * FROM user_additional_info WHERE user_id = ?');
+        $sentence->execute([$userdata['id']]);
+        $user_additional_info = $sentence->fetch();
+        $sentence = Flight::db()->prepare('SELECT * FROM vehicle_additional_info WHERE user_id = ?');
+        $sentence->execute([$user_additional_info['id']]);
+        $vehicle_additional_info = $sentence->fetch();
         $response['status'] = 'success';
-        $response['message'] = 'Usuario encontrado';
-        $response['data'] = $userdata;
+        $response['message'] = 'Informacion adicional encontrada';
+        $response['data'] = [
+            'user_additional_info' => $user_additional_info,
+            'vehicle_additional_info' => $vehicle_additional_info
+        ];
         return Flight::json($response);
     }else{
         $response['status'] = 'error';
